@@ -12,7 +12,7 @@ import threading
 button = Button(17)
 camera = PiCamera(resolution="640x480")
 
-def get_preview_image():
+def update_preview_image():
     global preview_pic
     image = np.empty((480, 640, 3), dtype=np.uint8)
     for _ in camera.capture_continuous(image, 'rgb', use_video_port=True):
@@ -21,9 +21,9 @@ def get_preview_image():
         preview_pic.configure(image=img)
         preview_pic.image = img
                 
-
 def check_button():
-    if button.is_pressed:
+    while True:
+        button.wait_for_press()
         take_picture()
 
 #take_picture
@@ -35,15 +35,15 @@ def take_picture():
     camera.capture(pic_stream, format='jpeg')
     pic_stream.seek(0)
     # append the camera image to the list
-    picture_box.images.append(Image.open(pic_stream))
+    app.images.append(Image.open(pic_stream))
     update_app()
 
 def del_last_pic():
-    picture_box.images.pop()
+    app.images.pop()
     update_app()
 
 def reset_arr():
-    picture_box.images = []
+    app.images = []
     update_app()
 
 def save_movie():
@@ -52,15 +52,15 @@ def save_movie():
     del_last_btn.disable()
     take_img_btn.disable()
     app.tk.update()
-    picture_box.images[0].save('./animation_{}.gif'.format(strftime("%Y%m%d%H%M%S")),
-    save_all=True, append_images=picture_box.images[1:], optimize=False, duration=250,loop=0)
+    app.images[0].save('./animation_{}.gif'.format(strftime("%Y%m%d%H%M%S")),
+    save_all=True, append_images=app.images[1:], optimize=False, duration=250,loop=0)
     save_btn.enable()
     reset_btn.enable()
     del_last_btn.enable()
     take_img_btn.enable()
 
 def update_app():
-    if len(picture_box.images) == 0:
+    if len(app.images) == 0:
         save_btn.disable()
         reset_btn.disable()
         del_last_btn.disable()
@@ -71,9 +71,9 @@ def update_app():
         take_img_btn.enable()
     ii = 0
     while ii < 5:
-        offset = 0 if len(picture_box.images) - 5 < 0 else len(picture_box.images) - 5
-        if ii < len(picture_box.images):
-            last_pics[ii].image = picture_box.images[ii + offset]
+        offset = 0 if len(app.images) - 5 < 0 else len(app.images) - 5
+        if ii < len(app.images):
+            last_pics[ii].image = app.images[ii + offset]
             last_pics[ii].show()
         else:
             last_pics[ii].image = None
@@ -105,13 +105,13 @@ last_pics = []
 for ii in range(5):
     last_pics.append(Picture(last_pic_box, grid=[0,ii], width = 128, height = 96))
 
+app.images = []
 
-picture_box.images = []
+thread_button = threading.Thread(target=check_button)
+thread_button.start()
 
-picture_box.repeat(40, check_button)
-
-thread = threading.Thread(target=get_preview_image)
-thread.start()
+thread_preview = threading.Thread(target=update_preview_image)
+thread_preview.start()
 
 update_app()
 
