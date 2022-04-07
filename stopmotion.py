@@ -15,18 +15,12 @@ camera = PiCamera(resolution="640x480")
 def get_preview_image():
     global preview_pic
     image = np.empty((480, 640, 3), dtype=np.uint8)
-    camera.capture(image, 'rgb', use_video_port=True)
-    img = Image.fromarray(image)
-    img = ImageTk.PhotoImage(image=img)
-    preview_pic.configure(image=img)
-    preview_pic.image = img
-        
-
-def get_preview_image_thread():
-    print(threading.active_count())
-    if threading.active_count() == 2:
-        thread = threading.Thread(target=get_preview_image)
-        thread.start()
+    for _ in camera.capture_continuous(image, 'rgb', use_video_port=True):
+        img = Image.fromarray(image)
+        img = ImageTk.PhotoImage(image=img)
+        preview_pic.configure(image=img)
+        preview_pic.image = img
+                
 
 def check_button():
     if button.is_pressed:
@@ -86,7 +80,12 @@ def update_app():
             last_pics[ii].hide()
         ii += 1
         
+def on_close():
+    camera.close()
+    exit()
+        
 app = App(title="Stop Motion Pi", width=800, height=500)
+app.when_closed = on_close
 button_box = Box(app, layout="grid")
 picture_box = Box(app, layout="grid")
 
@@ -111,7 +110,8 @@ picture_box.images = []
 
 picture_box.repeat(40, check_button)
 
-picture_box.repeat(10, get_preview_image_thread)
+thread = threading.Thread(target=get_preview_image)
+thread.start()
 
 update_app()
 
